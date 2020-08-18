@@ -14,11 +14,11 @@ def polygon(sides, radius=1, rotation=0, translation=None):
 
     if translation:
         points = [[sum(pair) for pair in zip(point, translation)] for point in points]
-
+        points = [(int(item[0]), int(item[1])) for item in points]
     return points
 
 class DisplayManager:
-    def __init__(self, screenwidth, screenheight, overlay_width, overlay_height, options_left, options_right, hub_radius):
+    def __init__(self, screenwidth, screenheight, overlay_width, overlay_height, options_left, options_right, alt_options_left, alt_options_right, hub_radius):
         self.screenwidth = screenwidth
         self.screenheight = screenheight
         self.overlay_width = overlay_width
@@ -33,6 +33,10 @@ class DisplayManager:
         self.num_options_left = len(options_left)
         self.options_right = options_right
         self.num_options_right = len(options_right)
+
+        # Alternate options symbols, reuse points thus length
+        self.alt_options_left, self.alt_options_right = alt_options_left, alt_options_right
+
         self.radius = hub_radius
 
         self.left_polygon_points, self.right_polygon_points = self.get_points()   
@@ -40,10 +44,15 @@ class DisplayManager:
         self.basic_font = pygame.font.SysFont("comicsansms", 72)
         
         self.left_text_surfaces, self.right_text_surfaces = [], []
+        self.alt_left_text_surfaces, self.alt_right_text_surfaces = [], []
         for opt in self.options_left:
             self.left_text_surfaces.append(self.basic_font.render(opt, 1, (0, 0, 255)))
         for opt in self.options_right:
             self.right_text_surfaces.append(self.basic_font.render(opt, 1, (0, 0, 255)))
+        for opt in self.alt_options_left:
+            self.alt_left_text_surfaces.append(self.basic_font.render(opt, 1, (0, 0, 255)))
+        for opt in self.alt_options_right:
+            self.alt_right_text_surfaces.append(self.basic_font.render(opt, 1, (0, 0, 255)))
 
         # The actual popup display surface.
         self.popupRect = self.popupSurf.get_rect()
@@ -51,6 +60,7 @@ class DisplayManager:
         self.popupRect.centery = screenheight // 2
         
         self.left_text_rects, self.right_text_rects = [], []
+        self.alt_left_text_rects, self.alt_right_text_rects = [], []
         for item in range(len(self.left_text_surfaces)):
             textRect = self.left_text_surfaces[item].get_rect()
             # Set positions for each left text element.
@@ -64,6 +74,20 @@ class DisplayManager:
             textRect.centerx = self.right_polygon_points[item][0]
             textRect.centery = self.right_polygon_points[item][1]
             self.right_text_rects.append(textRect)
+
+        for item in range(len(self.alt_left_text_surfaces)):
+            textRect = self.alt_left_text_surfaces[item].get_rect()
+            # Set positions for each left text element.
+            textRect.centerx = self.left_polygon_points[item][0]
+            textRect.centery = self.left_polygon_points[item][1]
+            self.alt_left_text_rects.append(textRect)
+
+        for item in range(len(self.alt_right_text_surfaces)):
+            textRect = self.alt_right_text_surfaces[item].get_rect()
+            # Set positions for each right text element.
+            textRect.centerx = self.right_polygon_points[item][0]
+            textRect.centery = self.right_polygon_points[item][1]
+            self.alt_right_text_rects.append(textRect)
     
     def get_points(self):
         left_center = self.screenwidth // 4
@@ -74,17 +98,30 @@ class DisplayManager:
 
         return left_points, right_points
     
-    def draw_popup(self, l_x, l_y, r_x, r_y):
-        # Left side
-        for item in range(len(self.left_text_surfaces)):
-            textSurf = self.left_text_surfaces[item]
-            textRect = self.left_text_rects[item]
-            self.popupSurf.blit(textSurf, textRect)
-        # Right side
-        for item in range(len(self.right_text_surfaces)):
-            textSurf = self.right_text_surfaces[item]
-            textRect = self.right_text_rects[item]
-            self.popupSurf.blit(textSurf, textRect)
+    def draw_popup(self, l_x, l_y, r_x, r_y, alt = False):
+        if not alt:
+            # Left side
+            for item in range(len(self.left_text_surfaces)):
+                textSurf = self.left_text_surfaces[item]
+                textRect = self.left_text_rects[item]
+                self.popupSurf.blit(textSurf, textRect)
+            # Right side
+            for item in range(len(self.right_text_surfaces)):
+                textSurf = self.right_text_surfaces[item]
+                textRect = self.right_text_rects[item]
+                self.popupSurf.blit(textSurf, textRect)
+        else:
+            # Left side
+            for item in range(len(self.alt_left_text_surfaces)):
+                textSurf = self.alt_left_text_surfaces[item]
+                textRect = self.alt_left_text_rects[item]
+                self.popupSurf.blit(textSurf, textRect)
+            # Right side
+            for item in range(len(self.alt_right_text_surfaces)):
+                textSurf = self.alt_right_text_surfaces[item]
+                textRect = self.alt_right_text_rects[item]
+                self.popupSurf.blit(textSurf, textRect)
+
         pygame.draw.circle(self.popupSurf, (255,0,0), (l_x, l_y), 5, 0)
         pygame.draw.circle(self.popupSurf, (255,0,0), (r_x, r_y), 5, 0)
 
@@ -98,17 +135,25 @@ class DisplayManager:
     def draw_cursors(self, l_x, l_y, r_x, r_y):
         pygame.draw.circle()
 
-    def get_option(self, l_x, l_y, r_x, r_y):
+    def get_option(self, l_x, l_y, r_x, r_y, alt = False):
         # This will return the first option, so left stick takes precedence
-        for item in range(len(self.left_text_rects)):
-            if self.left_text_rects[item].collidepoint(l_x, l_y):
-                return self.options_left[item]
-        for item in range(len(self.right_text_rects)):
-            if self.right_text_rects[item].collidepoint(r_x, r_y):
-                return self.options_right[item]
+        if not alt:
+            for item in range(len(self.left_text_rects)):
+                if self.left_text_rects[item].collidepoint(l_x, l_y):
+                    return self.options_left[item]
+            for item in range(len(self.right_text_rects)):
+                if self.right_text_rects[item].collidepoint(r_x, r_y):
+                    return self.options_right[item]
+        else:
+            for item in range(len(self.alt_left_text_rects)):
+                if self.alt_left_text_rects[item].collidepoint(l_x, l_y):
+                    return self.alt_options_left[item]
+            for item in range(len(self.alt_right_text_rects)):
+                if self.alt_right_text_rects[item].collidepoint(r_x, r_y):
+                    return self.alt_options_right[item]
 
 class InputManager:
-    def __init__(self, joystick_num, screenwidth, screenheight, stick_radi, left_points, right_points, left_letters, right_letters):
+    def __init__(self, joystick_num, screenwidth, screenheight, stick_radi, left_points, right_points, left_letters, right_letters, alt_left_letters, alt_right_letters):
         pygame.joystick.init()
         self.joystick_num = joystick_num
         self.joystick_count = pygame.joystick.get_count()
@@ -128,7 +173,7 @@ class InputManager:
         self.left_points.append((self.idle_axis[0], self.idle_axis[1]))
         self.right_points.append((self.idle_axis[2], self.idle_axis[3]))
         self.left_answer, self.right_answer = deepcopy(left_letters)+["IDLE"], deepcopy(right_letters)+["IDLE"]
-
+        self.alt_left_answer, self.alt_right_answer = deepcopy(alt_left_letters)+["IDLE"], deepcopy(alt_right_letters)+["IDLE"]
 
     def get_controller_state(self):
         state = {"name": self.joystick_name, "input":{}}
@@ -175,30 +220,36 @@ class InputManager:
         
         return l_x, l_y, r_x, r_y
 
-    def get_closest_point(self, l_x, l_y, r_x, r_y):
+    def get_closest_point(self, l_x, l_y, r_x, r_y, not_alt):
         # If closest to idle, ignore.
         l_distance,l_index = spatial.KDTree(self.left_points).query([(l_x, l_y)])
         r_distance,r_index = spatial.KDTree(self.right_points).query([(r_x, r_y)])
 
-        return {"left": self.left_answer[l_index[0]], "right": self.right_answer[r_index[0]]}
+        if not_alt:
+            return {"left": self.left_answer[l_index[0]], "right": self.right_answer[r_index[0]]}
+        else:
+            return {"left": self.alt_left_answer[l_index[0]], "right": self.alt_right_answer[r_index[0]]}
 
 
 if __name__ == "__main__":
     pygame.init()
-
-    left_letters = "abcdefgh"
-    right_letters = "ijklmnop"
+    left_letters = list("abcdefgh")
+    right_letters = list("ijklmnop")
+    alt_left_letters = list("qrstuvwx")
+    alt_right_letters = list("yz.,_-?;")
     left_letters = list(left_letters)
     right_letters = list(right_letters)
     width, height = 1024, 576
     display = DisplayManager(screenwidth=width, screenheight=height, 
                             overlay_width=width, overlay_height=height, 
                             options_left=left_letters, options_right=right_letters,
+                            alt_options_left=alt_left_letters, alt_options_right=alt_right_letters,
                             hub_radius=200)
 
     input = InputManager(0, screenwidth=width, screenheight=height, stick_radi=display.radius,
                         left_points=display.left_polygon_points, right_points=display.right_polygon_points,
-                        left_letters=left_letters, right_letters=right_letters)
+                        left_letters=left_letters, right_letters=right_letters,
+                        alt_left_letters=alt_left_letters, alt_right_letters=alt_right_letters)
 
     # Initialize the joysticks
     done = False
@@ -227,13 +278,15 @@ if __name__ == "__main__":
     count = 0
 
     # Pressed down state for each key.
-    l_state, r_state = [], []
+    l_state, r_state, alt_l_state, alt_r_state = [], [], [], []
     l_range = len(left_letters+["IDLE"])
     for i in range(l_range):
         if i == l_range:
             l_state.append(True)
         else:
             l_state.append(False)
+    for i in range(l_range):
+        alt_l_state.append(False)
 
     r_range = len(right_letters+["IDLE"])
     for i in range(r_range):
@@ -241,16 +294,23 @@ if __name__ == "__main__":
             r_state.append(True)
         else:
             r_state.append(False)
+    for i in range(r_range):
+        alt_r_state.append(False)
 
     l_answers = left_letters+["IDLE"]
     r_answers = right_letters+["IDLE"]
+    alt_l_answers = alt_left_letters+["IDLE"]
+    alt_r_answers = alt_right_letters+["IDLE"]
 
+    # Since the lists are the same size, this doesn't matter for both separately:
     l_last_key_pressed, r_last_key_pressed = l_answers.index("IDLE"), r_answers.index("IDLE")
-
+    last_space_key = None
     while done != True:
         state = input.get_controller_state()
+        not_alt = state["input"]["buttons"][4] == 0
+        #print(state)
         l_x, l_y, r_x, r_y = input.input_scaling(state)
-        closest_points = input.get_closest_point(l_x, l_y, r_x, r_y)
+        closest_points = input.get_closest_point(l_x, l_y, r_x, r_y, not_alt=not_alt)
 
         # Show output        
         #print("l_x: ", l_x, " - l_y: ", l_y, "r_x: ", r_x, " - r_y: ", r_y)
@@ -260,36 +320,70 @@ if __name__ == "__main__":
         l_opt_buf[count] = closest_points["left"]
         r_opt_buf[count] = closest_points["right"]
 
+        if not_alt:
+            l_key_pressed = l_answers.index(l_opt_buf[count])
+            # If there is only one option
+            if len(set(l_opt_buf)) == 1:
+                if l_key_pressed != l_last_key_pressed:
+                    l_state[l_last_key_pressed] = False
+                    l_state[l_key_pressed] = True
+
+                    # Suppress "IDLE"
+                    if l_key_pressed != l_answers.index("IDLE"):
+                        print(l_answers[l_key_pressed], flush=True, end='')
+
+                    #print(l_answers[l_key_pressed])
+                    l_last_key_pressed = l_key_pressed
+
+        else:
+            l_key_pressed = alt_l_answers.index(l_opt_buf[count])
+            # If there is only one option
+            if len(set(l_opt_buf)) == 1:
+                if l_key_pressed != l_last_key_pressed:
+                    alt_l_state[l_last_key_pressed] = False
+                    alt_l_state[l_key_pressed] = True
+
+                    # Suppress "IDLE"
+                    if l_key_pressed != alt_l_answers.index("IDLE"):
+                        print(alt_l_answers[l_key_pressed], flush=True, end='')
+
+                    #print(l_answers[l_key_pressed])
+                    l_last_key_pressed = l_key_pressed
+
+        if not_alt:
+            r_key_pressed = r_answers.index(r_opt_buf[count])
+            # If there is only one option
+            if len(set(r_opt_buf)) == 1:
+                if r_key_pressed != r_last_key_pressed:
+                    r_state[r_last_key_pressed] = False
+                    r_state[r_key_pressed] = True
+                    
+                    # Suppress "IDLE"
+                    if r_key_pressed != r_answers.index("IDLE"):
+                        print(r_answers[r_key_pressed], flush=True, end='')
+                    
+                    #print(r_answers[r_key_pressed])
+                    r_last_key_pressed = r_key_pressed
         
-        l_key_pressed = l_answers.index(l_opt_buf[count])
-        # If there is only one option
-        if len(set(l_opt_buf)) == 1:
-            if l_key_pressed != l_last_key_pressed:
-                l_state[l_last_key_pressed] = False
-                l_state[l_key_pressed] = True
+        else:
+            r_key_pressed = alt_r_answers.index(r_opt_buf[count])
+            # If there is only one option
+            if len(set(r_opt_buf)) == 1:
+                if r_key_pressed != r_last_key_pressed:
+                    alt_r_state[r_last_key_pressed] = False
+                    alt_r_state[r_key_pressed] = True
+                    
+                    # Suppress "IDLE"
+                    if r_key_pressed != alt_r_answers.index("IDLE"):
+                        print(alt_r_answers[r_key_pressed], flush=True, end='')
+                    
+                    #print(r_answers[r_key_pressed])
+                    r_last_key_pressed = r_key_pressed
 
-                # Suppress "IDLE"
-                if l_key_pressed != l_answers.index("IDLE"):
-                    print(l_answers[l_key_pressed], flush=True, end='')
-
-                #print(l_answers[l_key_pressed])
-
-                l_last_key_pressed = l_key_pressed
-
-
-        r_key_pressed = r_answers.index(r_opt_buf[count])
-        # If there is only one option
-        if len(set(r_opt_buf)) == 1:
-            if r_key_pressed != r_last_key_pressed:
-                r_state[r_last_key_pressed] = False
-                r_state[r_key_pressed] = True
-                
-                # Suppress "IDLE"
-                if r_key_pressed != r_answers.index("IDLE"):
-                    print(r_answers[r_key_pressed], flush=True, end='')
-                
-                #print(r_answers[r_key_pressed])
-                r_last_key_pressed = r_key_pressed
+        space_key = state["input"]["buttons"][0] == True | False
+        if space_key != last_space_key:
+            last_space_key = space_key
+            print(" ", flush=True, end='')
 
         #print("LAST OPTIONS: ", l_last_opt, r_last_opt)
 
@@ -310,15 +404,18 @@ if __name__ == "__main__":
 
 
         #pprint(state)
-        display.draw_popup(l_x, l_y, r_x, r_y)
-
+        if not_alt:
+            display.draw_popup(l_x, l_y, r_x, r_y)
+        else:
+            display.draw_popup(l_x, l_y, r_x, r_y, alt = True)
         # EVENT PROCESSING STEP
         # User did something
         for event in pygame.event.get():
             # If user clicked close
             if event.type == pygame.QUIT: 
                 done = True
-
+            
+            """
             # Possible joystick actions: JOYAXISMOTION JOYBALLMOTION JOYBUTTONDOWN JOYBUTTONUP JOYHATMOTION
             if event.type == pygame.JOYBUTTONDOWN:
                 print("Joystick button pressed.")
@@ -329,6 +426,7 @@ if __name__ == "__main__":
                 # IF STILL, IT DOESN'T DO ANYTHING
                 exec("")
                 #print("Joystick moved.")
+            """
 
         # This isn't actually necessary when I have the Input checking closest points.
         """
