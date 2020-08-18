@@ -1,5 +1,7 @@
 import math
 
+#https://stackoverflow.com/questions/23411688/drawing-polygon-with-n-number-of-sides-in-python-3-2
+
 def polygon(sides, radius=1, rotation=0, translation=None):
     one_segment = math.pi * 2 / sides
 
