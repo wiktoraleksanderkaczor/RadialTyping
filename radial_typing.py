@@ -2,6 +2,7 @@ import math
 import pygame
 from pprint import pprint
 from scipy import spatial
+from copy import deepcopy
 import numpy as np
 
 def polygon(sides, radius=1, rotation=0, translation=None):
@@ -18,7 +19,6 @@ def polygon(sides, radius=1, rotation=0, translation=None):
 
 class DisplayManager:
     def __init__(self, screenwidth, screenheight, overlay_width, overlay_height, options_left, options_right, hub_radius):
-        pygame.init()
         self.screenwidth = screenwidth
         self.screenheight = screenheight
         self.overlay_width = overlay_width
@@ -107,55 +107,87 @@ class DisplayManager:
             if self.right_text_rects[item].collidepoint(r_x, r_y):
                 return self.options_right[item]
 
-def get_controller_state(): 
-    state = {}
-   
-    # Get count of joysticks
-    joystick_count = pygame.joystick.get_count()
+class InputManager:
+    def __init__(self, joystick_num, screenwidth, screenheight, stick_radi, left_points, right_points, left_letters, right_letters):
+        pygame.joystick.init()
+        self.joystick_num = joystick_num
+        self.joystick_count = pygame.joystick.get_count()
+        if self.joystick_num > self.joystick_count:
+            print("ERROR: Joystick index exceeds joystick count. i.e. no joystick detected")
+            exit(1)
+        self.joystick = pygame.joystick.Joystick(self.joystick_num)
+        self.joystick.init()
+        self.joystick_name = self.joystick.get_name()
+        self.axis = self.joystick.get_numaxes()
+        self.num_buttons = self.joystick.get_numbuttons()
+        self.num_hats = self.joystick.get_numhats()
+        self.screenwidth, self.screenheight = screenwidth, screenheight
+        self.scaling = stick_radi
+        self.idle_axis = (self.input_scaling(self.get_controller_state()))
+        self.left_points, self.right_points = deepcopy(left_points), deepcopy(right_points)
+        self.left_points.append((self.idle_axis[0], self.idle_axis[1]))
+        self.right_points.append((self.idle_axis[2], self.idle_axis[3]))
+        self.left_answer, self.right_answer = deepcopy(left_letters)+["IDLE"], deepcopy(right_letters)+["IDLE"]
 
-    state["joystick_count"] = joystick_count
-    state["joysticks"] = {}    
-    # For each joystick:
-    for i in range(joystick_count):
-        joystick = pygame.joystick.Joystick(i)
-        joystick.init()
-        
-        # Get the name from the OS for the controller/joystick
-        state["joysticks"][i] = {"name": joystick.get_name()}
-        
-        # Usually axis run in pairs, up/down for one, and left/right for
-        # the other.
-        axes = joystick.get_numaxes()
-        state["joysticks"][i]["num_axies"] = axes
-        
-        state["joysticks"][i]["joystick_axis"] = {}
-        for j in range(axes):
-            axis = joystick.get_axis(j)
-            state["joysticks"][i]["joystick_axis"][j] = axis
 
-        buttons = joystick.get_numbuttons()
-        state["joysticks"][i]["num_buttons"] = buttons
+    def get_controller_state(self):
+        state = {"name": self.joystick_name, "input":{}}
 
-        state["joysticks"][i]["buttons"] = {}
-        for j in range(buttons):
-            button = joystick.get_button(j)
-            state["joysticks"][i]["buttons"][j] = button
-            
+        # Get the axis
+        state["input"]["num_axis"] = self.axis
+        state["input"]["axis"] = {}
+        for i in range(self.axis):
+            state["input"]["axis"][i] = self.joystick.get_axis(i)
+
+        # Get the buttons
+        state["input"]["num_buttons"] = self.num_buttons
+        state["input"]["buttons"] = {}
+        for i in range(self.num_buttons):
+            state["input"]["buttons"][i] = self.joystick.get_button(i)
+
         # Hat switch. All or nothing for direction, not like joysticks.
         # Value comes back in an array.
-        hats = joystick.get_numhats()
-        state["joysticks"][i]["num_hats"] = hats
+        state["input"]["num_hats"] = self.num_hats
+        state["input"]["hats"] = {}
+        for i in range(self.num_hats):
+            state["input"]["hats"][i] = self.joystick.get_hat(i)
 
-        state["joysticks"][i]["hats"] = {}
-        for j in range(hats):
-            hat = joystick.get_hat(j)
-            state["joysticks"][i]["hats"][j] = hat
+        return state
+
+    def input_scaling(self, state):
+        # The scaling is because it is in range of [-1, 1].
+        # I needed it in pixels to reach the radius edges.
+        joy_axis = state["input"]["axis"]
         
-    return state
+        l_x = joy_axis[0] * self.scaling
+        l_y = joy_axis[1] * self.scaling
+        r_x = joy_axis[3] * self.scaling
+        r_y = joy_axis[4] * self.scaling
+
+        # To make it go from center of both hubs.
+        l_x += self.screenwidth // 4
+        l_y += self.screenheight // 2
+        r_x += (self.screenwidth // 4) * 3
+        r_y += self.screenheight // 2
+        
+        # To integer
+        l_x, l_y, r_x, r_y = int(l_x), int(l_y), int(r_x), int(r_y)
+        
+        return l_x, l_y, r_x, r_y
+
+    def get_closest_point(self, l_x, l_y, r_x, r_y):
+        # If closest to idle, ignore.
+        l_distance,l_index = spatial.KDTree(self.left_points).query([(l_x, l_y)])
+        r_distance,r_index = spatial.KDTree(self.right_points).query([(r_x, r_y)])
+
+        return {"left": self.left_answer[l_index[0]], "right": self.right_answer[r_index[0]]}
+
 
 if __name__ == "__main__":
-    left_letters = "1234567"
-    right_letters = "abcdefg"
+    pygame.init()
+
+    left_letters = "abcdefgh"
+    right_letters = "ijklmnop"
     left_letters = list(left_letters)
     right_letters = list(right_letters)
     width, height = 1024, 576
@@ -164,55 +196,118 @@ if __name__ == "__main__":
                             options_left=left_letters, options_right=right_letters,
                             hub_radius=200)
 
+    input = InputManager(0, screenwidth=width, screenheight=height, stick_radi=display.radius,
+                        left_points=display.left_polygon_points, right_points=display.right_polygon_points,
+                        left_letters=left_letters, right_letters=right_letters)
+
     # Initialize the joysticks
-    pygame.joystick.init()
     done = False
     first = True
 
     # Used to manage how fast it updates
     clock = pygame.time.Clock()
     FPS = 60
+    
+    # In milliseconds:
+    second_in_ms = 1000
+    time_slot_by_fps = 1000 // FPS
+    time_tracked_ms = 0
+    # Click every 250ms over option.
+    time_to_track_ms = 250
+    # This is out of a second in ms, i.e. 1000 slots.
+    slot_count = 0
+    for i in range(second_in_ms):
+        if time_tracked_ms < time_to_track_ms:
+            time_tracked_ms += time_slot_by_fps
+            slot_count += 1
+
+    l_opt_buf = [0 for i in range(slot_count)]
+    r_opt_buf = [0 for i in range(slot_count)]
+    l_last_opt, r_last_opt = None, None
+    count = 0
+
+    # Pressed down state for each key.
+    l_state, r_state = [], []
+    l_range = len(left_letters+["IDLE"])
+    for i in range(l_range):
+        if i == l_range:
+            l_state.append(True)
+        else:
+            l_state.append(False)
+
+    r_range = len(right_letters+["IDLE"])
+    for i in range(r_range):
+        if i == r_range:
+            r_state.append(True)
+        else:
+            r_state.append(False)
+
+    l_answers = left_letters+["IDLE"]
+    r_answers = right_letters+["IDLE"]
+
+    l_last_key_pressed, r_last_key_pressed = l_answers.index("IDLE"), r_answers.index("IDLE")
 
     while done != True:
-        state = get_controller_state()
+        state = input.get_controller_state()
+        l_x, l_y, r_x, r_y = input.input_scaling(state)
+        closest_points = input.get_closest_point(l_x, l_y, r_x, r_y)
 
-        # The 200 is because it is in pixels, scaling factor
-        joy_axis = state["joysticks"][0]["joystick_axis"]
+        # Show output        
+        #print("l_x: ", l_x, " - l_y: ", l_y, "r_x: ", r_x, " - r_y: ", r_y)
+        #print(closest_points)
+
+        # Keeping track of what the closest point was for the last "time_to_track_ms" per ms.
+        l_opt_buf[count] = closest_points["left"]
+        r_opt_buf[count] = closest_points["right"]
+
         
-        pix_move_scaling = display.radius
-        l_x = joy_axis[0] * pix_move_scaling
-        l_y = joy_axis[1] * pix_move_scaling
-        r_x = joy_axis[3] * pix_move_scaling
-        r_y = joy_axis[4] * pix_move_scaling
+        l_key_pressed = l_answers.index(l_opt_buf[count])
+        # If there is only one option
+        if len(set(l_opt_buf)) == 1:
+            if l_key_pressed != l_last_key_pressed:
+                l_state[l_last_key_pressed] = False
+                l_state[l_key_pressed] = True
 
-        # To make it go from respective radial interface center
-        l_x += display.screenwidth//4
-        l_y += display.screenheight//2
-        r_x += (display.screenwidth//4) * 3
-        r_y += display.screenheight//2
+                # Suppress "IDLE"
+                if l_key_pressed != l_answers.index("IDLE"):
+                    print(l_answers[l_key_pressed], flush=True, end='')
 
-        # Get idles for closest detection.
-        if first:
-            l_x_idle, l_y_idle = l_x, l_y
-            r_x_idle, r_y_idle = r_x, r_y
-            left_to_query = display.left_polygon_points
-            left_to_query.append((l_x_idle, l_y_idle))
-            right_to_query = display.right_polygon_points
-            right_to_query.append((r_x_idle, r_y_idle))
-            left_answer = left_letters + ["IDLE"]
-            right_answer = right_letters + ["IDLE"]
-            first = False
+                #print(l_answers[l_key_pressed])
 
-        # If closest to idle, ignore.
-        l_distance,l_index = spatial.KDTree(left_to_query).query([(l_x, l_y)])
-        r_distance,r_index = spatial.KDTree(right_to_query).query([(r_x, r_y)])
+                l_last_key_pressed = l_key_pressed
 
-        print("Closest Points: ", "L_STICK - ", left_answer[l_index[0]], ", R_STICK - ", right_answer[r_index[0]])
 
-        # Change all to int.
-        l_x, l_y, r_x, r_y = int(l_x), int(l_y), int(r_x), int(r_y)
-        
-        print("l_x: ", l_x, " - l_y: ", l_y, "r_x: ", r_x, " - r_y: ", r_y)
+        r_key_pressed = r_answers.index(r_opt_buf[count])
+        # If there is only one option
+        if len(set(r_opt_buf)) == 1:
+            if r_key_pressed != r_last_key_pressed:
+                r_state[r_last_key_pressed] = False
+                r_state[r_key_pressed] = True
+                
+                # Suppress "IDLE"
+                if r_key_pressed != r_answers.index("IDLE"):
+                    print(r_answers[r_key_pressed], flush=True, end='')
+                
+                #print(r_answers[r_key_pressed])
+                r_last_key_pressed = r_key_pressed
+
+        #print("LAST OPTIONS: ", l_last_opt, r_last_opt)
+
+        """
+        # Checking if only one option was within those "time_to_track_ms" per ms
+        r_set = list(set(r_opt_buf))
+        if r_set != {"IDLE"} and r_set != r_last_opt:
+            r_last_opt = r_set
+            print("PRINT - ", r_opt_buf[0])
+        """
+
+        # Wrap around for buffer.
+        # -1 for index in range
+        if count == (slot_count - 1):
+            count = 0
+        else: 
+            count += 1
+
 
         #pprint(state)
         display.draw_popup(l_x, l_y, r_x, r_y)
@@ -235,14 +330,14 @@ if __name__ == "__main__":
                 exec("")
                 #print("Joystick moved.")
 
-
-
+        # This isn't actually necessary when I have the Input checking closest points.
+        """
         OPTION = display.get_option(l_x, l_y, r_x, r_y)
         if OPTION != None:
             print("OPTION: ", OPTION)
         else:
             print("OPTION: ", "NOTHING")
-
+        """
         # Limit to N frames per second
         clock.tick(FPS)
 
