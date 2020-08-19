@@ -11,9 +11,5 @@ def polygon(sides, radius=1, rotation=0, translation=None):
 
     if translation:
         points = [[sum(pair) for pair in zip(point, translation)] for point in points]
-
+        points = [(int(item[0]), int(item[1])) for item in points]
     return points
-
-if __name__ == "__main__":
-    points = polygon(5)
-    print(points[0][0])
