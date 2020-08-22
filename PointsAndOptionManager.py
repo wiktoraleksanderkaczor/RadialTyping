@@ -74,7 +74,7 @@ class PointAndOptionManager:
         return {"left_0": self.answers["left_0"][l_index], "right_0": self.answers["right_0"][r_index],
                 "left_1": self.answers["left_1"][l_index], "right_1": self.answers["right_1"][r_index]}
 
-    def update(self, variant=0):
+    def update(self, upper, variant=0):
         variant = str(variant)
         closest_points = self.get_closest_points()
 
@@ -83,12 +83,12 @@ class PointAndOptionManager:
             if key[-1] == variant:
                 # Supressing idle. Necessary for function.
                 if closest_points[key] != "IDLE":
-                    return self.buffer_key(closest_points[key])
+                    return self.buffer_key(closest_points[key], upper=upper)
 
     def update_time(self, time_passed):
         self.time_passed = time_passed
 
-    def buffer_key(self, key, needed_time_ms=220, repeated_time_ms=500, value=None):
+    def buffer_key(self, key, upper, needed_time_ms=220, repeated_time_ms=500, value=None):
         # Sanity checks
         if value == None:
             value = key
@@ -110,6 +110,8 @@ class PointAndOptionManager:
             self.last_key_buf = value
             self.repeat = True
             self.key_buf_time = 0
+            if upper:
+                value = value.upper()
             return value
         # Else, increment time.
         else:
