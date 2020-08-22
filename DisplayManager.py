@@ -1,17 +1,20 @@
 import pygame
 
 class DisplayManager:
-    def __init__(self, points):
+    def __init__(self, points, no_frame=False):
         # Save point reference
         self.points = points
 
         # Set the width and height of the screen [width,height]
-        self.screen = pygame.display.set_mode([points.screenwidth, points.screenheight])
+        if no_frame:
+            self.screen = pygame.display.set_mode([points.screenwidth, points.screenheight], pygame.NOFRAME)
+        else:
+            self.screen = pygame.display.set_mode([points.screenwidth, points.screenheight])
         self.screen_rect = self.screen.get_rect()
 
         self.popupSurf = pygame.Surface([points.overlay_width, points.overlay_height])
         self.basic_font = pygame.font.SysFont("comicsansms", 72)
-        
+
         # Text surfaces
         self.text_surfaces = {"left_0": [], "left_1": [], "right_0": [], "right_1": []}
 
@@ -65,6 +68,6 @@ class DisplayManager:
         self.screen.blit(self.popupSurf, self.popupRect)
         
         # Remove drawn circles.
-        self.popupSurf.fill([0,0,0])
+        self.popupSurf.fill((0, 0, 0))
         
         pygame.display.update()

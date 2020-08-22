@@ -39,26 +39,11 @@ class PointAndOptionManager:
 
         self.points_for_answers = {"left": [], "right": []}
 
-        # A second split into milliseconds.
-        self.opt_count = 0
-        # Num option buffer slots to check for unique in set.
-        self.opt_max = self.get_timekey_slots(FPS=FPS)
-        self.opt_buf = {"left": [0 for i in range(self.opt_max)], "right": [0 for i in range(self.opt_max)]}
-        self.opt_last = {"left": 0, "right": 0}
-
-        self.key_state = {"left_0": {}, "left_1": {}, "right_0": {}, "right_1": {}}
-        for key in self.answers:
-            for val in range(len(self.answers[key])):
-                self.key_state[key][val] = False
-        
-        for key in self.key_state.keys():
-            val = len(self.key_state[key])
-            self.key_state[key][val] = True
-
-
-
-        self.last_selected = {"left": None, "right": None}
-
+        self.time_passed = 0
+        self.last_key_buf = "IDLE"
+        self.last_key_pressed = None
+        self.key_buf_time = 0
+        self.repeat = False
 
     def update_cursor(self, l_x, l_y, r_x, r_y):
         self.cursor["l_x"] = l_x
@@ -96,41 +81,36 @@ class PointAndOptionManager:
         for key in closest_points.keys():
             # Check if key ends with variant number.
             if key[-1] == variant:
-                # Take away the "_0" or "_1"
-                buf_key = key[:-2]
-                # The minus one for using it as an index.
-                if self.opt_count < self.opt_max:
-                    self.opt_last[buf_key] = closest_points[key]
-                    self.opt_buf[buf_key][self.opt_count] = closest_points[key]
-                    self.opt_count += 1
-                else:
-                    self.opt_last[buf_key] = closest_points[key]
-                    self.opt_count = 0
-                    self.opt_buf[buf_key][self.opt_count] = closest_points[key]
+                # Supressing idle. Necessary for function.
+                if closest_points[key] != "IDLE":
+                    return self.buffer_key(closest_points[key])
 
-    def get_timekey_slots(self, key_delay=250, FPS=60):
-        time_slot = 1000 // FPS
-        time_counter = 0
-        # This is out of a second in ms, i.e. 1000 slots.
-        slot_count = 0
-        for i in range(1000):
-            if time_counter < key_delay:
-                time_counter += time_slot
-                slot_count += 1
-        
-        return slot_count
+    def update_time(self, time_passed):
+        self.time_passed = time_passed
 
-    def print_option(self, supress_idle=True):
-        l_set, r_set = set(self.opt_buf["left"]), set(self.opt_buf["right"])
-        uniq_l = len(l_set) == 1
-        uniq_r = len(r_set) == 1
-        if uniq_l:
-            if (self.opt_last["left"] == "IDLE") != supress_idle:
-                if self.opt_last["left"] != self.last_selected["left"]:
-                    self.last_selected["left"] = self.opt_last["left"]
-                    print(self.opt_last["left"])
-        if uniq_r:
-            if (self.opt_last["right"] == "IDLE") != supress_idle:
-                if self.opt_last["right"] != self.last_selected["right"]:
-                    self.last_selected["right"] = self.opt_last["right"]
-                    print(self.opt_last["right"])
+    def buffer_key(self, key, needed_time_ms=220, repeated_time_ms=500, value=None):
+        # Sanity checks
+        if value == None:
+            value = key
+        if key == False:
+            return None
+
+        # If different key, reset counters
+        if value != self.last_key_pressed:
+            self.key_buf_time = 0
+            self.last_key_pressed = value
+            self.repeat = False
+
+        # If key repeated, adjust time for registering key
+        if self.repeat == True:
+            needed_time_ms = repeated_time_ms
+
+        # If time since pressed bigger than time needed, set counters and return key
+        if self.key_buf_time > needed_time_ms:
+            self.last_key_buf = value
+            self.repeat = True
+            self.key_buf_time = 0
+            return value
+        # Else, increment time.
+        else:
+            self.key_buf_time += self.time_passed
