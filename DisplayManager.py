@@ -25,85 +25,47 @@ class DisplayManager:
         self.lower_text_surfaces = {"left_0": [], "left_1": [], "right_0": [], "right_1": []}
         self.upper_text_surfaces = {"left_0": [], "left_1": [], "right_0": [], "right_1": []}
 
-        left0 = points.left_options[0]
-        left1 = points.left_options[1]
-        right0 = points.right_options[0]
-        right1 = points.right_options[1]
+        options = points.options
+        # The True and False is for imaginary "is_upper"
+        self.text_surfaces = {True: {}, False: {}}
+        for key in options.keys():
+            self.text_surfaces[True][key] = []
+            self.text_surfaces[False][key] = []
 
         render = basic_font.render
-        for opt in left0:
-            self.lower_text_surfaces["left_0"].append(render(opt, 1, (0, 0, 255)))
-        for opt in left1:
-            self.lower_text_surfaces["left_1"].append(render(opt, 1, (0, 0, 255)))
-        for opt in right0:
-            self.lower_text_surfaces["right_0"].append(render(opt, 1, (0, 0, 255)))
-        for opt in right1:
-            self.lower_text_surfaces["right_1"].append(render(opt, 1, (0, 0, 255)))
-
-        for opt in toupper(left0):
-            self.upper_text_surfaces["left_0"].append(render(opt, 1, (0, 0, 255)))
-        for opt in toupper(left1):
-            self.upper_text_surfaces["left_1"].append(render(opt, 1, (0, 0, 255)))
-        for opt in toupper(right0):
-            self.upper_text_surfaces["right_0"].append(render(opt, 1, (0, 0, 255)))
-        for opt in toupper(right1):
-            self.upper_text_surfaces["right_1"].append(render(opt, 1, (0, 0, 255)))
+        for key in options.keys():
+            for opt in options[key]:
+                self.text_surfaces[False][key].append(render(opt, 1, (0, 0, 255)))
+            for opt in toupper(options[key]):
+                self.text_surfaces[True][key].append(render(opt, 1, (0, 0, 255)))
 
         # The actual popup display surface.
         self.popupRect = self.popupSurf.get_rect()
         self.popupRect.centerx = points.screenwidth // 2
         self.popupRect.centery = points.screenheight // 2
         
-        self.lower_text_rects = {"left_0": [], "left_1": [], "right_0": [], "right_1": []}
-        self.upper_text_rects = {"left_0": [], "left_1": [], "right_0": [], "right_1": []}
+        self.text_rects = {True: {}, False: {}}
+        for key in options.keys():
+            self.text_rects[True][key] = []
+            self.text_rects[False][key] = []
 
-        for key in self.lower_text_surfaces.keys():
-            if key[:4] == "left":
-                for index in range(len(self.lower_text_surfaces[key])):
-                    textRect = self.lower_text_surfaces[key][index].get_rect()
-                    textRect.centerx = points.left_points[index][0]
-                    textRect.centery = points.left_points[index][1]
-                    self.lower_text_rects[key].append(textRect)
-            else:
-                for index in range(len(self.lower_text_surfaces[key])):
-                    textRect = self.lower_text_surfaces[key][index].get_rect()
-                    textRect.centerx = points.right_points[index][0]
-                    textRect.centery = points.right_points[index][1]
-                    self.lower_text_rects[key].append(textRect)
-
-        for key in self.upper_text_surfaces.keys():
-            if key[:4] == "left":
-                for index in range(len(self.upper_text_surfaces[key])):
-                    textRect = self.upper_text_surfaces[key][index].get_rect()
-                    textRect.centerx = points.left_points[index][0]
-                    textRect.centery = points.left_points[index][1]
-                    self.upper_text_rects[key].append(textRect)
-            else:
-                for index in range(len(self.upper_text_surfaces[key])):
-                    textRect = self.upper_text_surfaces[key][index].get_rect()
-                    textRect.centerx = points.right_points[index][0]
-                    textRect.centery = points.right_points[index][1]
-                    self.upper_text_rects[key].append(textRect)
+        for is_upper in [True, False]:
+            for key in self.text_surfaces[is_upper].keys():
+                for index in range(len(self.text_surfaces[is_upper][key])):
+                    textRect = self.text_surfaces[is_upper][key][index].get_rect()
+                    textRect.centerx = points.points[key][index][0]
+                    textRect.centery = points.points[key][index][1]
+                    self.text_rects[is_upper][key].append(textRect)
 
     def draw_popup(self, variant=0, upper=False):
         variant = str(variant)
 
-        if upper == False:
-            for key in self.lower_text_surfaces.keys():
-                # Check if key ends with variant number.
-                if key[-1] == variant:
-                    for item in range(len(self.lower_text_rects[key])):
-                        textSurf = self.lower_text_surfaces[key][item]
-                        textRect = self.lower_text_rects[key][item]
-                        self.popupSurf.blit(textSurf, textRect)
-        else:
-            for key in self.upper_text_surfaces.keys():
-                # Check if key ends with variant number.
-                if key[-1] == variant:
-                    for item in range(len(self.upper_text_rects[key])):
-                        textSurf = self.upper_text_surfaces[key][item]
-                        textRect = self.upper_text_rects[key][item]
-                        self.popupSurf.blit(textSurf, textRect)
+        for key in self.text_surfaces[upper].keys():
+            if key[-1] == variant:
+                for item in range(len(self.text_rects[upper][key])):
+                    textSurf = self.text_surfaces[upper][key][item]
+                    textRect = self.text_rects[upper][key][item]
+                    self.popupSurf.blit(textSurf, textRect)
 
         l_x, l_y, r_x, r_y = self.points.get_cursor()
         pygame.draw.circle(self.popupSurf, (255,0,0), (l_x, l_y), 5, 0)

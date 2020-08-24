@@ -20,9 +20,6 @@ class InputManager:
 
         # Adding idle axis as a point for nearest neighbour
         self.idle_axis = (self.input_scaling(self.get_controller_state()))
-        self.left_points, self.right_points = deepcopy(points.left_points), deepcopy(points.right_points)
-        self.left_points.append((self.idle_axis[0], self.idle_axis[1]))
-        self.right_points.append((self.idle_axis[2], self.idle_axis[3]))
 
     def get_controller_state(self):
         self.joystick.init()
