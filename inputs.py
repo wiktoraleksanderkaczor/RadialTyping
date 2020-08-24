@@ -1,8 +1,12 @@
 import pygame
 from copy import deepcopy
 
+from evdev import ecodes, InputDevice, ff
+from evdev import UInput, AbsInfo, ecodes as e
+from evdev import list_devices
+
 class InputManager:
-    def __init__(self, joystick_num, points):
+    def __init__(self, joystick_num, points, rumble_ms):
         pygame.joystick.init()
         self.joystick_num = joystick_num
         self.joystick_count = pygame.joystick.get_count()
@@ -20,6 +24,24 @@ class InputManager:
 
         # Adding idle axis as a point for nearest neighbour
         self.idle_axis = (self.input_scaling(self.get_controller_state()))
+
+        # Find first EV_FF capable event device (that we have permissions to use).
+        self.dev = None
+        for name in list_devices():
+            self.dev = InputDevice(name)
+            if e.EV_FF in self.dev.capabilities():
+                break
+
+        rumble = ff.Rumble(strong_magnitude=0x0000, weak_magnitude=0xffff)
+        effect_type = ff.EffectType(ff_rumble_effect=rumble)
+
+        effect = ff.Effect(
+            e.FF_RUMBLE, -1, 0,
+            ff.Trigger(0, 0),
+            ff.Replay(rumble_ms, 0),
+            effect_type
+        )
+        self.effect_id = self.dev.upload_effect(effect)
 
     def get_controller_state(self):
         self.joystick.init()
@@ -66,3 +88,7 @@ class InputManager:
         l_x, l_y, r_x, r_y = int(l_x), int(l_y), int(r_x), int(r_y)
         
         return l_x, l_y, r_x, r_y
+
+    def rumble(self, repeat_count=1):
+        self.dev.write(e.EV_FF, self.effect_id, repeat_count)
+        #self.dev.erase_effect(effect_id)

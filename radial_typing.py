@@ -2,9 +2,9 @@ import pygame
 from pprint import pprint
 import pyautogui as pag
 
-from DisplayManager import DisplayManager
-from PointsAndOptionManager import PointAndOptionManager
-from InputManager import InputManager
+from display import DisplayManager
+from data import DataManager
+from inputs import InputManager
 
 if __name__ == "__main__":
     pygame.init()
@@ -15,29 +15,32 @@ if __name__ == "__main__":
     left0 = list(r"edcbahgf") 
     right0 = list(r"mlkjipon")
     left1 = list(r"utsrqxwv")
-    right1 = list(r"yz") + ["FUC", "NUM", "SYM"] 
+    right1 = list(r"yz") + ["FUC", "NUM", "SYM", "PNC"] 
     left2 = list(r"012345678")
-    right2 = list(r"9-+*/") + ["BACK"]
-    left3 = ["F1", "F2", "F3", "F4", "F5", "F6", "F7"]
-    right3 = ["F8", "F9", "F10", "F11", "F12", "BACK"]
-    left4 = list("<>{}[]()")
+    right2 = list(r"9-+*/^%") + ["BACK"]
+    left3 = ["F5", "F4", "F3", "F2", "F1", "F8", "F7", "F6"]
+    right3 = ["F12", "F11", "F10", "F9", "BACK"]
+    left4 = list(r"<>{}[]()")
     right4 = ["Vol+", "Vol-", "VolMute", "Win", "PrtScr", "BACK"]
+    left5 = list(r"!?\"'@#~¬")
+    right5 = list(r"`.,&\|") + ["BACK"]
 
     options = {"left_0": left0, "right_0": right0,
                 "left_1": left1, "right_1": right1,
                 "left_2": left2, "right_2": right2,
                 "left_3": left3, "right_3": right3,
-                "left_4": left4, "right_4": right4}
+                "left_4": left4, "right_4": right4,
+                "left_5": left5, "right_5": right5}
 
     dimensions = {"screenwidth": 1024, "screenheight": 576, 
                 "overlay_width": 1024, "overlay_height": 576}
 
-    # Initialise PointAndOptionManager
-    points = PointAndOptionManager(dimensions, options, FPS, hub_radius=200)
+    # Initialise DataManager
+    points = DataManager(dimensions, options, FPS, hub_radius=200)
 
     # Initialise InputManager, get idle_axis, update points with idle_axis.
-    input = InputManager(joystick_num=0, points=points)
-    points.update_idle_points(input.idle_axis)
+    inputs = InputManager(joystick_num=0, points=points, rumble_ms=40)
+    points.update_idle_points(inputs.idle_axis)
     
     # Initialise the display.
     display = DisplayManager(points=points, no_frame=False)
@@ -52,7 +55,7 @@ if __name__ == "__main__":
 
     while done != True:
         # Get controller data
-        state = input.get_controller_state()
+        state = inputs.get_controller_state()
         # It's a bit odd in the initial state
         mod1 = abs(int(state["input"]["buttons"][5])) == 1
         upper = abs(int(state["input"]["buttons"][4])) == 1
@@ -72,7 +75,7 @@ if __name__ == "__main__":
             upper = False
 
         # Update cursor for popup and draw.
-        l_x, l_y, r_x, r_y = input.input_scaling(state)
+        l_x, l_y, r_x, r_y = inputs.input_scaling(state)
         points.update_cursor(l_x, l_y, r_x, r_y)
         display.draw_popup(variant=variant, upper=upper)
 
@@ -82,19 +85,27 @@ if __name__ == "__main__":
         # Get thumbstick options.
         thumb_option = points.update(variant=variant, upper=upper, wait_time=wait_time)
         if thumb_option == "BACK":
+            inputs.rumble()
             variant = 0
         elif thumb_option == "NUM":
+            inputs.rumble()
             wait_time = 500
             variant = 2
         elif thumb_option == "FUC":
+            inputs.rumble()
             wait_time = 500
             variant = 3
         elif thumb_option == "SYM":
+            inputs.rumble()
             wait_time = 500
             variant = 4
+        elif thumb_option == "PNC":
+            inputs.rumble()
+            wait_time = 500
+            variant = 5
         elif thumb_option != None:
+            inputs.rumble()
             pag.press(thumb_option)
-            variant = 0
             wait_time = 220
 
         

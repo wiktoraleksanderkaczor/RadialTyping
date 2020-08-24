@@ -2,7 +2,7 @@ from n_sided_polygon import polygon
 from scipy import spatial
 from copy import deepcopy
 
-class PointAndOptionManager:
+class DataManager:
     def __init__(self, dimensions, options, FPS, hub_radius):
         # Screen and overlay dimensions.
         self.screenwidth = dimensions["screenwidth"]

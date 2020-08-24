@@ -35,9 +35,15 @@ class DisplayManager:
         render = basic_font.render
         for key in options.keys():
             for opt in options[key]:
-                self.text_surfaces[False][key].append(render(opt, 1, (0, 0, 255)))
+                if opt == "BACK":
+                    self.text_surfaces[False][key].append(render(opt, 1, (120, 0, 255)))
+                else:
+                    self.text_surfaces[False][key].append(render(opt, 1, (0, 0, 255)))
             for opt in toupper(options[key]):
-                self.text_surfaces[True][key].append(render(opt, 1, (0, 0, 255)))
+                if opt == "BACK":
+                    self.text_surfaces[True][key].append(render(opt, 1, (120, 0, 255)))
+                else:
+                    self.text_surfaces[True][key].append(render(opt, 1, (0, 0, 255)))
 
         # The actual popup display surface.
         self.popupRect = self.popupSurf.get_rect()
